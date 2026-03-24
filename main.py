@@ -6,6 +6,8 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from scipy.optimize import minimize_scalar
 import matplotlib.colors as colors
+import csv
+import os
 
 class RosenbrockMethod:
     def __init__(self):
@@ -18,15 +20,12 @@ class RosenbrockMethod:
         }
         
     def function1(self, x):
-        """Первая тестовая функция"""
         return (3 * x[0]**2 + x[1])**2 + (2 * x[0] - 3 * x[1])**2
     
     def function2(self, x):
-        """Вторая тестовая функция"""
         return 9 * x[0]**2 + 16 * x[1]**2 - 90 * x[0] - 128 * x[1]
     
     def function3(self, x):
-        """Третья тестовая функция"""
         return (x[0] - 2)**4 + (x[0] - 2 * x[1])**2
     
     def minimize_along_direction(self, x, direction):
@@ -231,6 +230,10 @@ class RosenbrockGUI:
         self.start_button = ttk.Button(input_frame, text="Запустить алгоритм", command=self.run_algorithm, width=25)
         self.start_button.grid(row=12, column=0, columnspan=2, pady=20)
         
+        # Кнопка сохранения в Excel
+        self.save_button = ttk.Button(input_frame, text="Сохранить в CSV", command=self.save_to_csv, width=25)
+        self.save_button.grid(row=13, column=0, columnspan=2, pady=(0, 10))
+                        
         # Правая часть - график
         chart_frame = ttk.LabelFrame(top_frame, text="График оптимизации", padding="10")
         chart_frame.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -271,7 +274,7 @@ class RosenbrockGUI:
         v_scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
         h_scrollbar.grid(row=1, column=0, sticky=(tk.W, tk.E))
         
-        # Настраиваем веса для растягивания
+        # Настройка весов для растягивания
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
         main_frame.columnconfigure(0, weight=1)
@@ -297,7 +300,7 @@ class RosenbrockGUI:
             for j in range(X.shape[1]):
                 Z[i, j] = function([X[i, j], Y[i, j]])
         
-        # Рисуем контуры черным цветом
+        # Контуры
         contour = ax.contour(X, Y, Z, levels=20, colors='black', linewidths=0.5, alpha=0.6)
              
         return X, Y, Z
@@ -309,11 +312,11 @@ class RosenbrockGUI:
         if not self.rosenbrock.points_history:
             return
         
-        # Получаем выбранную функцию
+        # Получение выбранной функции
         function_name = self.function_var.get()
         current_function = self.rosenbrock.functions[function_name]
         
-        # Определяем диапазон для графика на основе точек
+        # Определение диапазона для графика на основе точек
         points = []
         for iteration in self.rosenbrock.points_history:
             k, xk, f_xk, x_next, f_next = iteration
@@ -321,7 +324,7 @@ class RosenbrockGUI:
         
         points = np.array(points)
         
-        # Расширяем диапазон для отображения
+        # Расширение диапазона для отображения
         x_min, x_max = points[:, 0].min(), points[:, 0].max()
         y_min, y_max = points[:, 1].min(), points[:, 1].max()
         
@@ -345,26 +348,13 @@ class RosenbrockGUI:
         z_min = np.min(Z)
         z_max = np.max(Z)
         
-        # Определяем уровни для малых значений (вблизи оптимума)
-        small_levels = []
-        # Добавляем уровни: 0.1, 0.25, 0.5, 1, 2, 3, 5, 10, 15, 20, 30, 40, 50
-        target_levels = [0.1, 0.25, 0.5, 1, 2, 3, 5, 10, 15, 20, 30, 40, 50]
+        # Добавляем уровни
+        target_levels = [0.1, 0.25, 0.5, 1, 2, 3, 5, 10, 15, 20, 30, 40, 50, 75, 100, 150, 200, 500]
         
         # Выбираем только те уровни, которые находятся в диапазоне значений функции
         levels = []
         for level in target_levels:
-            if level >= z_min and level <= z_max:
-                levels.append(level)
-            elif level > z_max:
-                break
-        
-        # Если уровней мало, добавляем промежуточные
-        if len(levels) < 5:
-            # Добавляем линейные уровни между z_min и z_max
-            linear_levels = np.linspace(z_min, min(z_max, 20), 10)
-            for level in linear_levels:
-                if level not in levels and level >= z_min:
-                    levels.append(level)
+            levels.append(level)
         
         levels = sorted(set(levels))
         
@@ -375,8 +365,6 @@ class RosenbrockGUI:
         # Подписываем каждый 2-й или 3-й уровень
         if len(levels) > 0:
             label_levels = levels[::2]  # Каждый второй уровень
-            # Фильтруем, чтобы не подписывать слишком маленькие и слишком большие
-            label_levels = [l for l in label_levels if 0.5 <= l <= 50]
             if label_levels:
                 self.ax.clabel(contour, levels=label_levels, inline=True, fontsize=8, colors='black', fmt='%d')
         
@@ -385,8 +373,7 @@ class RosenbrockGUI:
         
         # Добавляем номера итераций
         for i, (x, y) in enumerate(points):
-            self.ax.annotate(f'{i+1}', (x, y), xytext=(5, 5), textcoords='offset points', 
-                        fontsize=9, color='black', fontweight='bold')
+            self.ax.annotate(f'{i+1}', (x, y), xytext=(5, 5), textcoords='offset points', fontsize=9, color='black', fontweight='bold')
         
         # Настраиваем внешний вид графика
         self.ax.set_xlabel('x₁', fontsize=10, color='black')
@@ -409,6 +396,45 @@ class RosenbrockGUI:
         
         self.canvas.draw()
         
+    def save_to_csv(self):
+        """Сохранение таблицы результатов в CSV файл"""
+        try:
+            # Проверяем, есть ли данные в таблице
+            if not self.tree.get_children():
+                messagebox.showwarning("Предупреждение", "Нет данных для сохранения. Сначала запустите алгоритм.")
+                return
+            
+            # Открываем диалог выбора файла
+            from tkinter import filedialog
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".csv",
+                filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+                title="Сохранить таблицу как"
+            )
+            
+            if not filename:
+                return
+            
+            # Получаем заголовки столбцов
+            columns = self.tree['columns']
+            
+            # Открываем файл для записи
+            with open(filename, 'w', newline='', encoding='utf-8-sig') as file:
+                writer = csv.writer(file, delimiter=';')
+                
+                # Записываем заголовки
+                writer.writerow(columns)
+                
+                # Записываем данные
+                for item in self.tree.get_children():
+                    values = self.tree.item(item)['values']
+                    writer.writerow(values)
+            
+            messagebox.showinfo("Успех", f"Таблица успешно сохранена в файл:\n{filename}")
+            
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Ошибка при сохранении файла:\n{str(e)}")
+            
     def run_algorithm(self):
         try:
             # Получаем параметры
@@ -427,8 +453,7 @@ class RosenbrockGUI:
             # Проверяем ортогональность направлений
             dot = directions[0][0] * directions[1][0] + directions[0][1] * directions[1][1]
             if abs(dot) > 1e-6:
-                messagebox.showwarning("Предупреждение", 
-                                      "Направления должны быть ортогональны!\nПродолжаем выполнение, но результат может быть некорректным.")
+                messagebox.showwarning("Предупреждение", "Направления должны быть ортогональны!\nПродолжаем выполнение, но результат может быть некорректным.")
             
             # Выбираем функцию
             function_name = self.function_var.get()
