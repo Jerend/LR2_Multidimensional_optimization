@@ -372,12 +372,11 @@ class RosenbrockGUI:
     
     def update_result_display(self):
         """Обновление отображения результата"""
-        if self.rosenbrock.points_history:
-            last_point = self.rosenbrock.points_history[-1]
-            x_opt = last_point[1]
-            f_opt = last_point[2]
+        if self.rosenbrock.all_steps_history:
+            opt_point = self.rosenbrock.all_steps_history[-1]
+            f_opt = self.rosenbrock.current_function(opt_point)
             
-            result_text = f"Оптимальная точка: ({x_opt[0]:.6f}, {x_opt[1]:.6f})\nЗначение функции: {f_opt:.6f}"
+            result_text = f"Оптимальная точка: ({opt_point[0]:.6f}, {opt_point[1]:.6f})\nЗначение функции: {f_opt:.6f}"
             self.result_label.config(text=result_text, fg="black")
         else:
             self.result_label.config(text="Алгоритм не запущен", fg="gray")
@@ -483,12 +482,9 @@ class RosenbrockGUI:
             for j in range(X.shape[1]):
                 Z[i, j] = current_function([X[i, j], Y[i, j]])
         
-        # Автоматическое определение уровней
-        levels = self.get_adaptive_levels(Z, num_levels=15)
         
-        # Рисуем контуры
-        self.ax.contour(X, Y, Z, levels=levels, colors='black', linewidths=0.8, alpha=0.7)
-        
+        levels = self.get_adaptive_levels(Z, num_levels=15) # Автоматическое определение уровней   
+        self.ax.contour(X, Y, Z, levels=levels, colors='black', linewidths=0.8, alpha=0.7) # Рисуем контуры    
         # Добавляем подписи для некоторых уровней
         if len(levels) > 0:
             label_levels = levels[::3]
@@ -498,7 +494,7 @@ class RosenbrockGUI:
         # Рисуем траекторию из всех шагов
         self.ax.plot(points[:, 0], points[:, 1], 'k-o', linewidth=2, markersize=6, markerfacecolor='black', markeredgecolor='black')
         
-        # Добавляем номера для точек X_k (начала каждой итерации)
+        # Добавляем номера для точек X_k
         for i, (k, xk, f_xk, x_next, f_next) in enumerate(self.rosenbrock.points_history):
             x, y = xk
             self.ax.annotate(f'{i+1}', (x, y), xytext=(5, 5), textcoords='offset points', fontsize=10, color='black', fontweight='bold')
@@ -506,8 +502,7 @@ class RosenbrockGUI:
         # Добавляем оптимальную точку (последняя точка в all_steps_history)
         if len(self.rosenbrock.all_steps_history) > 0:
             opt_point = self.rosenbrock.all_steps_history[-1]
-            # Рисуем оптимальную точку красным цветом
-            self.ax.plot(opt_point[0], opt_point[1], 'ro', markersize=8, markerfacecolor='black', markeredgecolor='black', linewidth=2)
+            self.ax.plot(opt_point[0], opt_point[1], 'ro', markersize=8, markerfacecolor='blue', markeredgecolor='black', linewidth=2)
 
         # Настраиваем внешний вид графика
         self.ax.set_xlabel('x₁', fontsize=10, color='black')
@@ -601,20 +596,16 @@ class RosenbrockGUI:
             
             # Запуск алгоритма
             table_data = self.rosenbrock.run_algorithm(x_start, directions, eps, search_interval)
-            
-            # Обновление таблицы
-            for item in self.tree.get_children():
+                   
+            for item in self.tree.get_children(): # Обновление таблицы
                 self.tree.delete(item)
             
             for row in table_data:
                 values = [row[col] for col in self.tree['columns']]
                 self.tree.insert('', tk.END, values=values)
-            
-            # Обновляем график
-            self.update_chart()
-            
-            # Обновляем отображение результата
-            self.update_result_display()
+              
+            self.update_chart() # Обновляем график         
+            self.update_result_display() # Обновляем отображение результата
 
         except Exception as e:
             messagebox.showerror("Ошибка", f"Произошла ошибка:\n{str(e)}")
